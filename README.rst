@@ -1,9 +1,20 @@
 Bucky
 -----
 
+:info: Bucky Statsd and Collectd server for Graphite
+
+.. image:: https://travis-ci.org/trbs/bucky.png?branch=master
+   :target: https://travis-ci.org/trbs/bucky
+
+.. image:: https://coveralls.io/repos/trbs/bucky/badge.png?branch=master
+   :target: https://coveralls.io/r/trbs/bucky?branch=master
+
 Bucky is a small server for collecting and translating metrics for
 Graphite. It can current collect metric data from CollectD daemons
 and from StatsD clients.
+
+Bucky is a fork of the excellent, although seemingly abandoned, cloudant
+project Bucky. (https://github.com/cloudant/bucky/)
 
 Installation
 ------------
@@ -26,6 +37,22 @@ local Graphite (Carbon) daemon on 127.0.0.1:2003.
 These are all optional as illustrated below. You can also disable the
 CollectD or StatsD servers completely if you so desire.
 
+Process Names
+-------------
+
+If the py-setproctitle_ module is installed Bucky will use it to set
+user readable process names. This will make the child processes of Bucky
+easier to identify. Please note that this is completely optional.
+
+To install py-setproctitle_ run::
+
+    $ easy_install setproctitle
+    # or
+    $ pip install setproctitle
+
+.. _py-setproctitle: https://github.com/dvarrazzo/py-setproctitle
+
+
 Running Bucky For Real
 ----------------------
 
@@ -33,6 +60,13 @@ The astute observer will notice that Bucky has no flags for
 daemonization. This is quite on purpose. The recommended way to
 run Bucky in production is via runit. There's an example service
 directory in Bucky's source repository.
+
+Python 3 Support
+----------------
+
+Bucky supports Python 3. However this support is still very young
+and we would like to hear from you if you are running Bucky on
+Python3 and help us improve the support in real production environments.
 
 Command Line Options
 --------------------
@@ -130,6 +164,19 @@ config file::
     # How often stats should be flushed to Graphite.
     statsd_flush_time = 10.0
 
+    # If the legacy namespace is enabled, the statsd backend uses the
+    # default prefixes except for counters, which are stored directly
+    # in stats.NAME for the rate and stats_counts.NAME for the
+    # absolute count.  If legacy names are disabled, the prefixes are
+    # configurable, and counters are stored under
+    # stats.counters.{rate,count} by default.  Any prefix can be set
+    # to None to skip it.
+    statsd_legacy_namespace = True
+    statsd_global_prefix = "stats"
+    statsd_prefix_counter = "counters"
+    statsd_prefix_timer = "timers"
+    statsd_prefix_gauge = "gauges"
+
     # Basic Graphite configuration
     graphite_ip = "127.0.0.1"
     graphite_port = 2003
@@ -197,7 +244,7 @@ good to go.
 
 
 Configuring MetricsD
-------------------
+--------------------
 
 TODO
 

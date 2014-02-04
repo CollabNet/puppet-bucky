@@ -12,10 +12,11 @@
 # License for the specific language governing permissions and limitations under
 # the License.
 
-import copy
-import logging
 import os
+import six
+import copy
 import struct
+import logging
 
 from bucky.errors import ConfigError, ProtocolError
 from bucky.udpserver import UDPServer
@@ -25,12 +26,14 @@ log = logging.getLogger(__name__)
 
 class CPUConverter(object):
     PRIORITY = -1
+
     def __call__(self, sample):
         return ["cpu", sample["plugin_instance"], sample["type_instance"]]
 
 
 class InterfaceConverter(object):
     PRIORITY = -1
+
     def __call__(self, sample):
         return filter(None, [
             "interface",
@@ -43,12 +46,14 @@ class InterfaceConverter(object):
 
 class MemoryConverter(object):
     PRIORITY = -1
+
     def __call__(self, sample):
         return ["memory", sample["type_instance"]]
 
 
 class DefaultConverter(object):
     PRIORITY = -1
+
     def __call__(self, sample):
         parts = []
         parts.append(sample["plugin"].strip())
@@ -81,7 +86,8 @@ class CollectDTypes(object):
         if not types_dbs:
             types_dbs = filter(os.path.exists, [
                 "/usr/share/collectd/types.db",
-                "/usr/local/share/collectd/types.db" ])
+                "/usr/local/share/collectd/types.db",
+            ])
             if not types_dbs:
                 raise ConfigError("Unable to locate types.db")
         self.types_dbs = types_dbs
@@ -102,7 +108,7 @@ class CollectDTypes(object):
                     if not line.strip():
                         continue
                     self._add_type_line(line)
-            log.info("Loaded collectd types from %s" % types_db)
+            log.info("Loaded collectd types from %s", types_db)
 
     def _add_type_line(self, line):
         types = {
@@ -143,14 +149,14 @@ class CollectDParser(object):
             0x0003: self._parse_string("plugin_instance"),
             0x0004: self._parse_string("type"),
             0x0005: self._parse_string("type_instance"),
-            0x0006: None, # handle specially
+            0x0006: None,  # handle specially
             0x0007: self._parse_time("interval"),
             0x0009: self._parse_time_hires("interval")
         }
         sample = {}
         for (ptype, data) in self.parse_data(data):
             if ptype not in types:
-                log.debug("Ignoring part type: 0x%02x" % ptype)
+                log.debug("Ignoring part type: 0x%02x", ptype)
                 continue
             if ptype != 0x0006:
                 types[ptype](sample, data)
@@ -174,7 +180,7 @@ class CollectDParser(object):
             data = data[4:]
             if part_type not in types:
                 raise ProtocolError("Invalid part type: 0x%02x" % part_type)
-            part_len -= 4 # includes four header bytes we just parsed
+            part_len -= 4  # includes four header bytes we just parsed
             if len(data) < part_len:
                 raise ProtocolError("Truncated value.")
             part_data, data = data[:part_len], data[part_len:]
@@ -190,7 +196,10 @@ class CollectDParser(object):
         if nvals != len(vtypes):
             raise ProtocolError("Values different than types.db info.")
         for i in range(nvals):
-            (vtype,) = struct.unpack("B", data[i])
+            if six.PY3:
+                vtype = data[i]
+            else:
+                (vtype,) = struct.unpack("B", data[i])
             if vtype != vtypes[i][1]:
                 raise ProtocolError("Type mismatch with types.db")
         data = data[nvals:]
@@ -201,6 +210,8 @@ class CollectDParser(object):
 
     def _parse_string(self, name):
         def _parser(sample, data):
+            if six.PY3:
+                data = data.decode()
             if data[-1] != '\0':
                 raise ProtocolError("Invalid string detected.")
             sample[name] = data[:-1]
@@ -234,10 +245,9 @@ class CollectDConverter(object):
         try:
             name = '.'.join(handler(sample))
             if name is None:
-                return # treat None as "ignore sample"
+                return  # treat None as "ignore sample"
         except:
-            log.exception("Exception in sample handler  %s (%s):" % (
-                sample["plugin"], handler))
+            log.exception("Exception in sample handler  %s (%s):", sample["plugin"], handler)
             return
         host = sample.get("host", "")
         return (
@@ -262,18 +272,18 @@ class CollectDConverter(object):
 
     def _add_converter(self, name, inst, source="unknown"):
         if name not in self.converters:
-            log.info("Converter: %s from %s" % (name, source))
+            log.info("Converter: %s from %s", name, source)
             self.converters[name] = inst
             return
         kpriority = getattr(inst, "PRIORITY", 0)
         ipriority = getattr(self.converters[name], "PRIORITY", 0)
         if kpriority > ipriority:
-            log.info("Replacing: %s" % name)
-            log.info("Converter: %s from %s" % (name, source))
+            log.info("Replacing: %s", name)
+            log.info("Converter: %s from %s", name, source)
             self.converters[name] = inst
             return
-        log.info( "Ignoring: %s (%s) from %s (priority: %s vs %s)"
-            % (name, inst, source, kpriority, ipriority) )
+        log.info("Ignoring: %s (%s) from %s (priority: %s vs %s)",
+                 name, inst, source, kpriority, ipriority)
 
 
 class CollectDServer(UDPServer):
@@ -298,10 +308,10 @@ class CollectDServer(UDPServer):
                 val = self.calculate(host, name, vtype, val, time)
                 if val is not None:
                     self.queue.put((host, name, val, time))
-        except ProtocolError, e:
-            log.error("Protocol error: %s" % e)
+        except ProtocolError as e:
+            log.error("Protocol error: %s", e)
             if self.last_sample is not None:
-                log.info("Last sample: %s" % self.last_sample)
+                log.info("Last sample: %s", self.last_sample)
         return True
 
     def calculate(self, host, name, vtype, val, time):
@@ -312,8 +322,8 @@ class CollectDServer(UDPServer):
             3: self._calc_absolute  # absolute
         }
         if vtype not in handlers:
-            log.error("Invalid value type %s for %s" % (vtype, name))
-            log.info("Last sample: %s" % self.last_sample)
+            log.error("Invalid value type %s for %s", vtype, name)
+            log.info("Last sample: %s", self.last_sample)
             return
         return handlers[vtype](host, name, val, time)
 
@@ -329,7 +339,7 @@ class CollectDServer(UDPServer):
         self.prev_samples[key] = (val, time)
         if val < pval or time <= ptime:
             log.error("Invalid COUNTER update for: %s:%s" % key)
-            log.info("Last sample: %s" % self.last_sample)
+            log.info("Last sample: %s", self.last_sample)
             return
         return float(val - pval) / (time - ptime)
 
@@ -343,7 +353,7 @@ class CollectDServer(UDPServer):
         self.prev_samples[key] = (val, time)
         if time <= ptime:
             log.debug("Invalid DERIVE update for: %s:%s" % key)
-            log.debug("Last sample: %s" % self.last_sample)
+            log.debug("Last sample: %s", self.last_sample)
             return
         return float(val - pval) / (time - ptime)
 
@@ -356,6 +366,6 @@ class CollectDServer(UDPServer):
         self.prev_samples[key] = (val, time)
         if time <= ptime:
             log.error("Invalid ABSOLUTE update for: %s:%s" % key)
-            log.info("Last sample: %s" % self.last_sample)
+            log.info("Last sample: %s", self.last_sample)
             return
         return float(val) / (time - ptime)
