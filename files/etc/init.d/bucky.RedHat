@@ -14,6 +14,7 @@ lockfile='/var/lock/subsys/bucky'
 pidfile='/var/run/bucky.pid'
 bucky='/usr/bin/bucky'
 config='/etc/bucky/bucky.conf'
+logfile='/var/log/bucky.log'
 
 RETVAL=0
 
@@ -28,15 +29,16 @@ fi
 
 start() {
     echo -n $"Starting bucky daemon: "
-    $bucky $config &
+    $bucky $config >> $logfile 2>&1 &
     RETVAL=$?
 
     local PID=`pgrep -f "${bucky} ${config}"`
     echo $PID > ${pidfile}
 
+    [ $RETVAL -eq 0 ] && (touch ${lockfile}; echo_success) || echo_failure
     echo
-        [ $RETVAL = 0 ] && touch ${lockfile}
-        return $RETVAL
+
+    return $RETVAL
 }
 
 stop() {
@@ -44,7 +46,7 @@ stop() {
     killproc $pidopts $bucky
     RETVAL=$?
     echo
-    [ $RETVAL = 0 ] && rm -f ${lockfile} ${pidfile}
+    [ $RETVAL -eq 0 ] && rm -f ${lockfile} ${pidfile}
 }
 
 restart() {
@@ -80,7 +82,7 @@ case "$1" in
         rh_status
     ;;
     *)
-        echo $"Usage: $0 {start|stop|status|restart|reload|force-reload|condrestart|once|genconfig}"
+        echo $"Usage: $0 {start|stop|restart|condrestart|try-restart|status}"
         exit 1
 esac
 

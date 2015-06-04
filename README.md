@@ -44,7 +44,7 @@ For the meaning of all variables please check the bucky website.
 
 ### metricsd
 
-       metrics_enabled     => true
+       metricsd_enabled    => true
        metricsd_ip         => '127.0.0.1'
        metricsd_port       => 23632
        metricsd_flush_time => 10
@@ -52,7 +52,7 @@ For the meaning of all variables please check the bucky website.
 
 ### graphite
 
-       grahite_host                => '127.0.0.1'
+       graphite_host               => '127.0.0.1'
        graphite_port               => 2003
        graphite_max_reconnect      => 3
        graphite_reconnect_delay    => 5
@@ -67,3 +67,7 @@ For the meaning of all variables please check the bucky website.
        name_strip_duplicates => 'True'
        name_host_trim        => []
     
+
+## Dependencies
+- https://forge.puppetlabs.com/puppetlabs/stdlib
+- https://forge.puppetlabs.com/footballradar/python
